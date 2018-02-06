@@ -412,4 +412,4 @@ public class Test {
 1. 不同的产品需要不同额外参数的时候不支持。（同初代）
 2. 有对象时，需要在原有工厂中修改。
 
-[GitHub源代码](https://github.com/thornshell/WS)
+[GitHub源代码](https://github.com/thornshell/Code)
