@@ -5,7 +5,7 @@
 1. 继承Thread父类
 2. 实现Runable接口
 > 使用继承hread的方式：
-
+++的++
 ```
 public class MyThread extends Thread{
 	
