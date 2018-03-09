@@ -97,6 +97,38 @@ public class Adapter2 implements Voltage5V {
 
 **缺点：**
 - 暂无。（作者没想到）
+
+##### 五、创建客户端使用
+
+```
+import adapter.Adapter1;
+import adapter.Adapter2;
+import phone.Voltage5V;
+
+/**
+ * @see 创建客户端使用
+ * @author Thornhill
+ *
+ */
+public class Client {
+
+	public static void main(String[] args) {
+		Voltage5V voltage5v1 = new Adapter1();
+		Voltage5V voltage5v2 = new Adapter2();
+		voltage5v1.output5V();
+		voltage5v2.output5V();
+	}
+
+}
+```
+##### 输出结果：
+
+```
+输出5V电压
+输出5V电压
+```
+
+
 ### 结语：
 **适配器不是在详细设计时添加的，而是解决正在服役的项目的问题。**
 **适配器模式顾名思义，适用于在不匹配的问题已经发生了，需要调节的场合。不要过多的使用适配器模式。将会给代码可读性和后期的维护带来灾难。**   
