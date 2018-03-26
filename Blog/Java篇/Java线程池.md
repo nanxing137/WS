@@ -105,7 +105,7 @@ Future<T> submit(Callable<T> task)
 
   返回一个执行器，她在一个单线程中依次执行各个任务。
 
-> **API	java.util.concurrent.ExecutorService	5.0**
+	 **API	java.util.concurrent.ExecutorService	5.0**
 
 - Future<T> submit(Callable<T> task)
 
@@ -119,7 +119,7 @@ Future<T> submit(Callable<T> task)
 
   关闭服务，会先完成已经提交的任务而不再接收新的任务。
 
-> **API	java.util.concurrent.ThreadPoolExecutor	5.0**
+	 **API	java.util.concurrent.ThreadPoolExecutor	5.0**
 
 - int getLargestPoolSize()
 
@@ -194,6 +194,8 @@ ThreadPoolExecutor.CallerRunsPolicy		//由调用线程处理该任务
 
 #### 二、ThreadPoolExecutor类的使用总结
 
+#### 1. 线程池的任务处理流程
+
 根据 ThreadPoolExecutor 源码前面大段的注释，我们可以看出，当试图通过 excute 方法讲一个 Runnable 任务添加到线程池中时，按照如下顺序来处理：
 
 1. 如果线程池中的线程数量少于 corePoolSize，即使线程池中有空闲线程，也会创建一个新的线程来执行新添加的任务；
@@ -204,5 +206,117 @@ ThreadPoolExecutor.CallerRunsPolicy		//由调用线程处理该任务
 **总结起来，也即是说，当有新的任务要处理时，先看线程池中的线程数量是否大于 corePoolSize，再看缓冲队列 workQueue 是否满，最后看线程池中的线程数量是否大于 maximumPoolSize，都被拒绝才产生线程溢出。**
 
 **另外，当线程池中的线程数量大于 corePoolSize 时，如果里面有线程的空闲时间超过了 keepAliveTime，就将其移除线程池，这样，可以动态地调整线程池中线程的数量。**
+
+#### 2. 线程池状态
+
+> 在ThreadPoolExecutor中定义了一个volatile变量，另外定义了几个static final变量表示线程池的各个状态：
+
+```java
+volatile int runState;
+static final int RUNNING    = 0;
+static final int SHUTDOWN   = 1;
+static final int STOP       = 2;
+static final int TERMINATED = 3;
+```
+
+- runState表示当前线程池的状态，它是一个volatile变量用来保证线程之间的可见性；
+
+
+- 下面的几个static final变量表示runState可能的几个取值。
+
+
+- 当创建线程池后，初始时，线程池处于RUNNING状态；
+
+
+- 如果调用了shutdown()方法，则线程池处于SHUTDOWN状态，此时线程池不能够接受新的任务，它会等待所有任务执行完毕；
+
+
+- 如果调用了shutdownNow()方法，则线程池处于STOP状态，此时线程池不能接受新的任务，并且会去尝试终止正在执行的任务；
+
+
+- 当线程池处于SHUTDOWN或STOP状态，并且所有工作线程已经销毁，任务缓存队列已经清空或执行结束后，线程池被设置为TERMINATED状态。
+
+#### 3. 线程池中线程的初始化
+
+默认情况下，创建线程池之后，线程池中是没有线程的，需要提交任务之后才会创建线程。
+
+在实际中如果需要线程池创建之后立即创建线程，可以通过以下两个方法办到：
+
+- prestartCoreThread()：初始化一个核心线程；
+- prestartAllCoreThreads()：初始化所有核心线程
+
+　　下面是这2个方法的实现：
+
+```java
+public boolean prestartCoreThread() {
+    return addIfUnderCorePoolSize(null); //注意传进去的参数是null
+}
+ 
+public int prestartAllCoreThreads() {
+    int n = 0;
+    while (addIfUnderCorePoolSize(null))//注意传进去的参数是null
+        ++n;
+    return n;
+}
+```
+
+#### 4. 线程池的关闭
+
+ThreadPoolExecutor提供了两个方法，用于线程池的关闭，分别是shutdown()和shutdownNow()，其中：
+
+- shutdown()：不会立即终止线程池，而是要等所有任务缓存队列中的任务都执行完后才终止，但再也不会接受新的任务
+- shutdownNow()：立即终止线程池，并尝试打断正在执行的任务，并且清空任务缓存队列，返回尚未执行的任务
+
+#### 5. 线程池容量的动态调整
+
+ThreadPoolExecutor提供了动态调整线程池容量大小的方法：setCorePoolSize()和setMaximumPoolSize()，
+
+- setCorePoolSize：设置核心池大小
+- setMaximumPoolSize：设置线程池最大能创建的线程数目大小
+
+当上述参数从小变大时，ThreadPoolExecutor进行线程赋值，还可能立即创建新的线程来执行任务。
+
+#### 6. 应用程序编程接口（API）
+
+> API	java.util.concurrent.ThreadPoolExecutor
+
+| Modifier and Type        | Method and Description                                       |
+| ------------------------ | ------------------------------------------------------------ |
+| protected void           | **afterExecute**(Runnable r, Throwable t)Method invoked upon completion of execution of the given Runnable. |
+| void                     | **allowCoreThreadTimeOut**(boolean value)Sets the policy governing whether core threads may time out and terminate if no tasks arrive within the keep-alive time, being replaced if needed when new tasks arrive. |
+| boolean                  | **allowsCoreThreadTimeOut**()Returns true if this pool allows core threads to time out and terminate if no tasks arrive within the keepAlive time, being replaced if needed when new tasks arrive. |
+| boolean                  | **awaitTermination**(long timeout, TimeUnit unit)Blocks until all tasks have completed execution after a shutdown request, or the timeout occurs, or the current thread is interrupted, whichever happens first. |
+| protected void           | **beforeExecute**(Thread t, Runnable r)Method invoked prior to executing the given Runnable in the given thread. |
+| void                     | **execute**(Runnable command)Executes the given task sometime in the future. |
+| protected void           | **finalize**()Invokes shutdown when this executor is no longer referenced and it has no threads. |
+| int                      | **getActiveCount**()Returns the approximate number of threads that are actively executing tasks. |
+| long                     | **getCompletedTaskCount**()Returns the approximate total number of tasks that have completed execution. |
+| int                      | **getCorePoolSize**()Returns the core number of threads.     |
+| long                     | **getKeepAliveTime**(TimeUnit unit)Returns the thread keep-alive time, which is the amount of time that threads in excess of the core pool size may remain idle before being terminated. |
+| int                      | **getLargestPoolSize**()Returns the largest number of threads that have ever simultaneously been in the pool. |
+| int                      | **getMaximumPoolSize**()Returns the maximum allowed number of threads. |
+| int                      | **getPoolSize**()Returns the current number of threads in the pool. |
+| BlockingQueue<Runnable>  | **getQueue**()Returns the task queue used by this executor.  |
+| RejectedExecutionHandler | **getRejectedExecutionHandler**()Returns the current handler for unexecutable tasks. |
+| long                     | **getTaskCount**()Returns the approximate total number of tasks that have ever been scheduled for execution. |
+| ThreadFactory            | **getThreadFactory**()Returns the thread factory used to create new threads. |
+| boolean                  | **isShutdown**()Returns true if this executor has been shut down. |
+| boolean                  | **isTerminated**()Returns true if all tasks have completed following shut down. |
+| boolean                  | **isTerminating**()Returns true if this executor is in the process of terminating after [shutdown()](https://docs.oracle.com/javase/7/docs/api/java/util/concurrent/ThreadPoolExecutor.html#shutdown()) or [shutdownNow()](https://docs.oracle.com/javase/7/docs/api/java/util/concurrent/ThreadPoolExecutor.html#shutdownNow()) but has not completely terminated. |
+| int                      | **prestartAllCoreThreads**()Starts all core threads, causing them to idly wait for work. |
+| boolean                  | **prestartCoreThread**()Starts a core thread, causing it to idly wait for work. |
+| void                     | **purge**()Tries to remove from the work queue all [Future](https://docs.oracle.com/javase/7/docs/api/java/util/concurrent/Future.html) tasks that have been cancelled. |
+| boolean                  | **remove**(Runnable task)Removes this task from the executor's internal queue if it is present, thus causing it not to be run if it has not already started. |
+| void                     | **setCorePoolSize**(int corePoolSize)Sets the core number of threads. |
+| void                     | **setKeepAliveTime**(long time, TimeUnit unit)Sets the time limit for which threads may remain idle before being terminated. |
+| void                     | **setMaximumPoolSize**(int maximumPoolSize)Sets the maximum allowed number of threads. |
+| void                     | **setRejectedExecutionHandler**(RejectedExecutionHandler handler)Sets a new handler for unexecutable tasks. |
+| void                     | **setThreadFactory**(ThreadFactory threadFactory)Sets the thread factory used to create new threads. |
+| void                     | **shutdown**()Initiates an orderly shutdown in which previously submitted tasks are executed, but no new tasks will be accepted. |
+| List<Runnable>           | **shutdownNow**()Attempts to stop all actively executing tasks, halts the processing of waiting tasks, and returns a list of the tasks that were awaiting execution. |
+| protected void           | **terminated**()Method invoked when the Executor has terminated. |
+| String                   | **toString**()Returns a string identifying this pool, as well as its state, including indications of run state and estimated worker and task counts. |
+
+
 
 [GitHub传送门](https://github.com/thornshell)
